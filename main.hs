@@ -50,5 +50,14 @@ formula =
     (And (Var "p") (Var "q"))
     (Var "r")
 
+isTautology :: Formula -> Bool
+isTautology f = all snd (truthTable f)
+
+isSatisfiable :: Formula -> Bool
+isSatisfiable f = any snd (truthTable f)
+
+isContradiction :: Formula -> Bool
+isContradiction f = not (isSatisfiable f)
+
 main :: IO ()
 main = mapM_ print (truthTable formula)
