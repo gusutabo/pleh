@@ -1,0 +1,20 @@
+# Cabal
+dist-newstyle/
+.cabal-sandbox/
+cabal.sandbox.config
+*.hi
+*.o
+
+# Stack (caso use no futuro)
+.stack-work/
+
+# HLS / hie-bios
+.hie-bios
+.hie
+
+# Editor
+.vscode/
+*.swp
+
+# OS
+.DS_Store
