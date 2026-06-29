@@ -1,4 +1,6 @@
-import Data.List (nub, lookup)
+module Logic where
+  
+import Data.List (nub)
 
 data Formula
   = Var String
@@ -39,9 +41,9 @@ truthAssignments (v:vs) =
   ]
 
 truthTable :: Formula -> [(Env, Bool)]
-truthTable formula =
-  [ (env, eval env formula)
-  | env <- truthAssignments (vars formula)
+truthTable f =
+  [ (env, eval env f)
+  | env <- truthAssignments (vars f)
   ]
   
 formula :: Formula
@@ -58,6 +60,3 @@ isSatisfiable f = any snd (truthTable f)
 
 isContradiction :: Formula -> Bool
 isContradiction f = not (isSatisfiable f)
-
-main :: IO ()
-main = mapM_ print (truthTable formula)
