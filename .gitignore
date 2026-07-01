@@ -17,4 +17,4 @@ cabal.sandbox.config
 *.swp
 
 # OS
-.DS_Store
+.DS_Store*~
