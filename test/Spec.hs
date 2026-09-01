@@ -1,8 +1,44 @@
+-- Arbitrary Formula is an orphan: generating formulas is a testing concern.
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Main (main) where
 
+import Data.List (nub)
 import Test.Hspec
+import Test.Hspec.QuickCheck (prop)
+import Test.QuickCheck (Arbitrary (..), elements, oneof, sized)
 import Control.Exception (evaluate)
 import Logic
+import Parser (parseFormula)
+
+-- Three variables at most, so no truth table exceeds eight rows.
+instance Arbitrary Formula where
+  arbitrary = sized gen
+    where
+      gen n
+        | n <= 1 = variable
+        | otherwise =
+            oneof
+              [ variable
+              , Not <$> gen (n - 1)
+              , binary And
+              , binary Or
+              , binary Imp
+              , binary Iff
+              ]
+        where
+          variable = Var <$> elements ["p", "q", "r"]
+          binary con = con <$> gen (n `div` 2) <*> gen (n `div` 2)
+
+  shrink (Var _) = []
+  shrink (Not f) = f : map Not (shrink f)
+  shrink (And f1 f2) = [f1, f2] ++ [And a b | (a, b) <- shrink (f1, f2)]
+  shrink (Or f1 f2) = [f1, f2] ++ [Or a b | (a, b) <- shrink (f1, f2)]
+  shrink (Imp f1 f2) = [f1, f2] ++ [Imp a b | (a, b) <- shrink (f1, f2)]
+  shrink (Iff f1 f2) = [f1, f2] ++ [Iff a b | (a, b) <- shrink (f1, f2)]
+
+equivalent :: Formula -> Formula -> Bool
+equivalent f1 f2 = isTautology (Iff f1 f2)
 
 main :: IO ()
 main = hspec $ do
@@ -142,3 +178,93 @@ main = hspec $ do
         , [("p", True),  ("q", False)]
         , [("p", True),  ("q", True)]
         ]
+
+  describe "parseFormula" $ do
+    it "parses a variable" $ do
+      parseFormula "p" `shouldBe` Right (Var "p")
+
+    it "binds \8743 tighter than \8594" $ do
+      parseFormula "p & q -> r"
+        `shouldBe` Right (Imp (And (Var "p") (Var "q")) (Var "r"))
+
+    it "binds \8743 tighter than \8744" $ do
+      parseFormula "p | q & r"
+        `shouldBe` Right (Or (Var "p") (And (Var "q") (Var "r")))
+
+    it "honours explicit parentheses over precedence" $ do
+      parseFormula "(p | q) & r"
+        `shouldBe` Right (And (Or (Var "p") (Var "q")) (Var "r"))
+
+    it "associates \8594 to the right" $ do
+      parseFormula "p -> q -> r"
+        `shouldBe` Right (Imp (Var "p") (Imp (Var "q") (Var "r")))
+
+    it "associates \8743 to the left" $ do
+      parseFormula "p & q & r"
+        `shouldBe` Right (And (And (Var "p") (Var "q")) (Var "r"))
+
+    it "binds \172 tighter than any binary connective" $ do
+      parseFormula "~p & q"
+        `shouldBe` Right (And (Not (Var "p")) (Var "q"))
+
+    it "reads the ASCII and Unicode spellings identically" $ do
+      parseFormula "p & q -> r" `shouldBe` parseFormula "p \8743 q \8594 r"
+
+    it "reads the keyword spellings identically" $ do
+      parseFormula "p and q implies r" `shouldBe` parseFormula "p & q -> r"
+
+    it "rejects a trailing operator" $ do
+      parseFormula "p &" `shouldSatisfy` isLeft
+
+    it "rejects an unclosed parenthesis" $ do
+      parseFormula "(p & q" `shouldSatisfy` isLeft
+
+    it "rejects an unknown character" $ do
+      parseFormula "p # q" `shouldSatisfy` isLeft
+
+    it "rejects two adjacent variables" $ do
+      parseFormula "p q" `shouldSatisfy` isLeft
+
+    it "rejects the empty input" $ do
+      parseFormula "" `shouldSatisfy` isLeft
+
+  describe "properties" $ do
+    prop "render round-trips through parseFormula" $ \f ->
+      parseFormula (render f) == Right f
+
+    prop "a truth table has one row per assignment" $ \f ->
+      length (truthTable f) == 2 ^ length (vars f)
+
+    prop "vars are distinct" $ \f ->
+      let vs = vars f in length (nub vs) == length vs
+
+    prop "isContradiction is the negation of isSatisfiable" $ \f ->
+      isContradiction f == not (isSatisfiable f)
+
+    prop "isTautology f is isContradiction (Not f)" $ \f ->
+      isTautology f == isContradiction (Not f)
+
+    prop "every tautology is satisfiable" $ \f ->
+      not (isTautology f) || isSatisfiable f
+
+    prop "double negation" $ \f ->
+      equivalent (Not (Not f)) f
+
+    prop "De Morgan, over conjunction" $ \f1 f2 ->
+      equivalent (Not (And f1 f2)) (Or (Not f1) (Not f2))
+
+    prop "De Morgan, over disjunction" $ \f1 f2 ->
+      equivalent (Not (Or f1 f2)) (And (Not f1) (Not f2))
+
+    prop "material implication" $ \f1 f2 ->
+      equivalent (Imp f1 f2) (Or (Not f1) f2)
+
+    prop "contraposition" $ \f1 f2 ->
+      equivalent (Imp f1 f2) (Imp (Not f2) (Not f1))
+
+    prop "a biconditional is implication in both directions" $ \f1 f2 ->
+      equivalent (Iff f1 f2) (And (Imp f1 f2) (Imp f2 f1))
+
+isLeft :: Either a b -> Bool
+isLeft (Left _) = True
+isLeft (Right _) = False
