@@ -69,11 +69,7 @@ isSatisfiable f = any snd (truthTable f)
 isContradiction :: Formula -> Bool
 isContradiction f = not (isSatisfiable f)
 
--- | Render a formula in infix notation, parenthesising only where the
--- operator precedences require it.
---
--- Binding tightness, loosest to tightest: 'Iff', 'Imp', 'Or', 'And', 'Not'.
--- 'Imp' and 'Iff' associate to the right, 'And' and 'Or' to the left.
+-- | Infix notation, parenthesised only where precedence requires it.
 render :: Formula -> String
 render = go (0 :: Int)
   where
@@ -89,8 +85,7 @@ render = go (0 :: Int)
     paren True s = "(" ++ s ++ ")"
     paren False s = s
 
--- | Render a formula's truth table as an aligned table, one row per
--- assignment, with a column per variable and a final column for the formula.
+-- | One column per variable, plus a final column for the formula.
 renderTruthTable :: Formula -> String
 renderTruthTable f =
     unlines (row headers : separator : map assignmentRow (truthTable f))
