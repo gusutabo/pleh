@@ -1,5 +1,7 @@
 # Propositional Logic in Haskell
 
+[![CI](https://github.com/gusutabo/pleh/actions/workflows/ci.yml/badge.svg)](https://github.com/gusutabo/pleh/actions/workflows/ci.yml)
+
 > [!IMPORTANT]
 > Personal exercise — representing propositional logic formulas and generating their truth tables in Haskell.
 
@@ -121,6 +123,23 @@ render (Not (And (Var "p") (Var "q")))            -- "¬(p ∧ q)"
 `renderTruthTable` lays the table out with one column per variable and a final
 column for the formula itself.
 
+## Parsing
+
+`parseFormula :: String -> Either String Formula` reads a formula back from
+text. Each connective has a Unicode spelling, one or more ASCII spellings, and a
+keyword spelling:
+
+| Connective | Unicode | ASCII | Keyword |
+| --- | --- | --- | --- |
+| negation | `¬` | `~` `!` | `not` |
+| conjunction | `∧` | `&` `&&` `/\` | `and` |
+| disjunction | `∨` | `\|` `\|\|` `\/` | `or` |
+| implication | `→` | `->` `=>` | `implies` |
+| biconditional | `↔` | `<->` `<=>` | `iff` |
+
+Precedence and associativity match `render`, so parsing is its left inverse:
+`parseFormula (render f) == Right f` for every formula `f`.
+
 ## Example formula
 
 ```haskell
@@ -160,11 +179,36 @@ tighter than `→`, so the parentheses would be redundant.
 
 ```bash
 cabal build
+cabal test
+```
+
+With no argument, `pleh` prints the truth table of the example formula:
+
+```bash
 cabal run pleh
 ```
 
-Running the tests:
+Otherwise it parses the formula given on the command line:
 
 ```bash
-cabal test
+$ cabal run pleh -- '(p | q) & ~r'
+| p | q | r | (p ∨ q) ∧ ¬r |
+|---|---|---|--------------|
+| F | F | F |      F       |
+| F | F | T |      F       |
+| F | T | F |      T       |
+| F | T | T |      F       |
+| T | F | F |      T       |
+| T | F | T |      F       |
+| T | T | F |      T       |
+| T | T | T |      F       |
 ```
+
+A formula that does not parse is reported on stderr, with a non-zero exit status:
+
+```bash
+$ cabal run pleh -- 'p & '
+pleh: Expected a variable or '(' but reached the end of the input
+```
+
+Run `pleh --help` for the full list of accepted connectives.
