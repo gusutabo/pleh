@@ -1,6 +1,18 @@
-module Logic where
-  
-import Data.List (nub)
+module Logic
+  ( Formula (..)
+  , Env
+  , eval
+  , vars
+  , truthAssignments
+  , truthTable
+  , render
+  , renderTruthTable
+  , isTautology
+  , isSatisfiable
+  , isContradiction
+  ) where
+
+import Data.List (intercalate, nub)
 
 data Formula
   = Var String
@@ -25,12 +37,14 @@ eval env (Imp f1 f2) = not (eval env f1) || eval env f2
 eval env (Iff f1 f2) = eval env f1 == eval env f2
 
 vars :: Formula -> [String]
-vars (Var x) = [x]
-vars (Not f) = vars f
-vars (And f1 f2) = nub (vars f1 ++ vars f2)
-vars (Or f1 f2) = nub (vars f1 ++ vars f2)
-vars (Imp f1 f2) = nub (vars f1 ++ vars f2)
-vars (Iff f1 f2) = nub (vars f1 ++ vars f2)
+vars = nub . go
+  where
+    go (Var x) = [x]
+    go (Not f) = go f
+    go (And f1 f2) = go f1 ++ go f2
+    go (Or f1 f2) = go f1 ++ go f2
+    go (Imp f1 f2) = go f1 ++ go f2
+    go (Iff f1 f2) = go f1 ++ go f2
 
 truthAssignments :: [String] -> [Env]
 truthAssignments [] = [[]]
@@ -45,12 +59,6 @@ truthTable f =
   [ (env, eval env f)
   | env <- truthAssignments (vars f)
   ]
-  
-formula :: Formula
-formula =
-  Imp
-    (And (Var "p") (Var "q"))
-    (Var "r")
 
 isTautology :: Formula -> Bool
 isTautology f = all snd (truthTable f)
@@ -60,3 +68,49 @@ isSatisfiable f = any snd (truthTable f)
 
 isContradiction :: Formula -> Bool
 isContradiction f = not (isSatisfiable f)
+
+-- | Render a formula in infix notation, parenthesising only where the
+-- operator precedences require it.
+--
+-- Binding tightness, loosest to tightest: 'Iff', 'Imp', 'Or', 'And', 'Not'.
+-- 'Imp' and 'Iff' associate to the right, 'And' and 'Or' to the left.
+render :: Formula -> String
+render = go (0 :: Int)
+  where
+    go _ (Var x) = x
+    go p (Not f) = paren (p > 5) ("\172" ++ go 5 f)
+    go p (And f1 f2) = binary p 4 " \8743 " (go 4 f1) (go 5 f2)
+    go p (Or f1 f2) = binary p 3 " \8744 " (go 3 f1) (go 4 f2)
+    go p (Imp f1 f2) = binary p 2 " \8594 " (go 3 f1) (go 2 f2)
+    go p (Iff f1 f2) = binary p 1 " \8596 " (go 2 f1) (go 1 f2)
+
+    binary outer prec op l r = paren (outer > prec) (l ++ op ++ r)
+
+    paren True s = "(" ++ s ++ ")"
+    paren False s = s
+
+-- | Render a formula's truth table as an aligned table, one row per
+-- assignment, with a column per variable and a final column for the formula.
+renderTruthTable :: Formula -> String
+renderTruthTable f =
+    unlines (row headers : separator : map assignmentRow (truthTable f))
+  where
+    names = vars f
+    headers = names ++ [render f]
+    widths = map length headers
+
+    assignmentRow (env, value) =
+      row (map (cell . flip lookup env) names ++ [cell (Just value)])
+
+    row cells = "| " ++ intercalate " | " (zipWith center widths cells) ++ " |"
+    separator = "|" ++ intercalate "|" (map (\w -> replicate (w + 2) '-') widths) ++ "|"
+
+    cell (Just True) = "T"
+    cell (Just False) = "F"
+    cell Nothing = "?"
+
+    center w s = replicate left ' ' ++ s ++ replicate right ' '
+      where
+        padding = w - length s
+        left = padding `div` 2
+        right = padding - left
