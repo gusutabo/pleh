@@ -1,5 +1,6 @@
 module Logic
   ( Formula (..)
+  , FormulaClass (..)
   , Env
   , eval
   , vars
@@ -7,6 +8,8 @@ module Logic
   , truthTable
   , render
   , renderTruthTable
+  , classify
+  , renderClassification
   , isTautology
   , isSatisfiable
   , isContradiction
@@ -21,6 +24,12 @@ data Formula
   | Or Formula Formula
   | Imp Formula Formula
   | Iff Formula Formula
+  deriving (Show, Eq)
+
+data FormulaClass
+  = Tautology
+  | Contradiction
+  | Contingent
   deriving (Show, Eq)
 
 type Env = [(String, Bool)]
@@ -60,14 +69,30 @@ truthTable f =
   | env <- truthAssignments (vars f)
   ]
 
+classify :: Formula -> FormulaClass
+classify f =
+  let rows = truthTable f
+      allTrue = all snd rows
+      anyTrue = any snd rows
+  in if allTrue
+       then Tautology
+       else if not anyTrue
+            then Contradiction
+            else Contingent
+
+renderClassification :: FormulaClass -> String
+renderClassification Tautology = "tautology"
+renderClassification Contradiction = "contradiction"
+renderClassification Contingent = "contingent"
+
 isTautology :: Formula -> Bool
-isTautology f = all snd (truthTable f)
+isTautology f = classify f == Tautology
 
 isSatisfiable :: Formula -> Bool
-isSatisfiable f = any snd (truthTable f)
+isSatisfiable f = classify f /= Contradiction
 
 isContradiction :: Formula -> Bool
-isContradiction f = not (isSatisfiable f)
+isContradiction f = classify f == Contradiction
 
 -- | Infix notation, parenthesised only where precedence requires it.
 render :: Formula -> String

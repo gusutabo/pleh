@@ -23,10 +23,18 @@ main = do
     [] -> putStr (renderTruthTable exampleFormula)
     ["-h"] -> usage
     ["--help"] -> usage
+    "--classify" : formulaArgs -> classifyFormula formulaArgs
     _ ->
       case parseFormula (unwords args) of
         Left err -> die err
         Right f -> putStr (renderTruthTable f)
+
+classifyFormula :: [String] -> IO ()
+classifyFormula [] = die "--classify requires a formula"
+classifyFormula args =
+  case parseFormula (unwords args) of
+    Left err -> die err
+    Right f -> putStrLn (renderClassification (classify f))
 
 usage :: IO ()
 usage = do
@@ -36,6 +44,7 @@ usage = do
     [ "Usage: " ++ name ++ " [FORMULA]"
     , ""
     , "Print the truth table of a propositional formula."
+    , "Use --classify FORMULA to classify it as a tautology, contradiction, or contingent formula."
     , "With no argument, an example formula is used."
     , ""
     , "Connectives (Unicode or ASCII):"
