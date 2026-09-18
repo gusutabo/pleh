@@ -64,6 +64,12 @@ With Cabal:
 cabal run pleh
 ```
 
+To classify a formula as a tautology, contradiction, or contingent formula:
+
+```bash
+cabal run pleh -- --classify '(p & q) -> r'
+```
+
 Or directly with GHC from the project root:
 
 ```bash
