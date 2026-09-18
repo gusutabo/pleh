@@ -95,6 +95,19 @@ main = hspec $ do
     it "is False for a single variable (p)" $ do
       isContradiction (Var "p") `shouldBe` False
 
+  describe "classify" $ do
+    it "classifies a tautology" $ do
+      let f = Or (Var "p") (Not (Var "p"))
+      classify f `shouldBe` Tautology
+
+    it "classifies a contradiction" $ do
+      let f = And (Var "p") (Not (Var "p"))
+      classify f `shouldBe` Contradiction
+
+    it "classifies a contingent formula" $ do
+      let f = Imp (And (Var "p") (Var "q")) (Var "r")
+      classify f `shouldBe` Contingent
+
   describe "relationships between isTautology, isSatisfiable, and isContradiction" $ do
     it "isContradiction f == not (isSatisfiable f), for a contradiction" $ do
       let f = And (Var "p") (Not (Var "p"))
